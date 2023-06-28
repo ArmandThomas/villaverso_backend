@@ -1,9 +1,11 @@
+from django.core.files.storage import FileSystemStorage
 from rest_framework.response import Response
 
-from .models import VillaversoUser
+from .models import VillaversoUser, House, ImageHouse
 
 from dotenv import dotenv_values
 from rest_framework.decorators import api_view
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 
 import bcrypt
@@ -52,7 +54,6 @@ def register(request):
     password = request.data.get('password')
     confirm_password = request.data.get('confirm_password')
 
-
     if not email or not password or not confirm_password:
         content['message'] = 'All fields are required'
         return Response(content, status=status.HTTP_400_BAD_REQUEST)
@@ -100,6 +101,7 @@ def register(request):
 
     return Response(content, status=status.HTTP_201_CREATED)
 
+
 @api_view(['GET'])
 def me(request):
     content = {'message': ''}
@@ -127,3 +129,79 @@ def me(request):
         content['message'] = 'Invalid token'
         return Response(content, status=status.HTTP_401_UNAUTHORIZED)
 
+
+@api_view(['POST'])
+@csrf_exempt
+def create_house(request):
+    content = {'message': ''}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+        # get data from request corresponding to house
+
+        name = request.data.get('name')
+        nbr_rooms = request.data.get('nbr_rooms')
+        nbr_people = request.data.get('nbr_people')
+        m2_house = request.data.get('m2_house')
+        m2_garden = request.data.get('m2_garden')
+        pool = False
+        if request.data.get('pool') == True:
+            pool = True
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        localisation = request.data.get('localisation')
+        description = request.data.get('description')
+
+        if not name or not nbr_rooms or not nbr_people or not m2_house or not m2_garden or not latitude or not longitude or not localisation or not description:
+            content['message'] = 'All fields are required'
+            return Response(content, status=status.HTTP_400_BAD_REQUEST)
+
+        house = House(
+            name=name,
+            nbr_rooms=nbr_rooms,
+            nbr_people=nbr_people,
+            m2_house=m2_house,
+            m2_garden=m2_garden,
+            pool=pool,
+            latitude=latitude,
+            longitude=longitude,
+            localisation=localisation,
+            description=description,
+            owner=user,
+        )
+
+        house.save()
+
+        content['message'] = 'House created successfully'
+        content['data'] = {
+            'id': house.id,
+            'name': house.name,
+            'nbr_rooms': house.nbr_rooms,
+            'nbr_people': house.nbr_people,
+            'm2_house': house.m2_house,
+            'm2_garden': house.m2_garden,
+            'pool': house.pool,
+            'latitude': house.latitude,
+            'longitude': house.longitude,
+            'localisation': house.localisation,
+            'description': house.description,
+            'owner': house.owner.email,
+        }
+
+        return Response(content, status=status.HTTP_200_OK)
+
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
