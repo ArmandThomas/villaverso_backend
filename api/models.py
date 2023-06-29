@@ -1,6 +1,11 @@
 from django.db import models
 
+
 # Create your models here.
+
+def upload_to(instance, filename):
+    return 'images/{filename}'.format(filename=filename)
+
 
 class VillaversoUser(models.Model):
     email = models.EmailField(max_length=100)
@@ -8,6 +13,14 @@ class VillaversoUser(models.Model):
 
     def __str__(self):
         return self.email
+
+
+class ImageHouse(models.Model):
+    image = models.ImageField(upload_to=upload_to)
+    house = models.ForeignKey('House', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.image.name
 
 
 class House(models.Model):
@@ -21,14 +34,28 @@ class House(models.Model):
     latitude = models.FloatField()
     longitude = models.FloatField()
     localisation = models.CharField(max_length=100)
-    description = models.CharField(max_length=500)
+    description = models.TextField()
 
     def __str__(self):
-        return self.name - self.owner.email
+        return self.name + " " + self.owner.email
 
-class ImageHouse(models.Model):
-    image = models.ImageField(upload_to='images/')
+
+class Deal(models.Model):
+    house_receiver = models.ForeignKey(House, on_delete=models.CASCADE)
+    house_client = models.ForeignKey(VillaversoUser, on_delete=models.CASCADE)
+    date_start = models.DateField()
+    date_end = models.DateField()
+    status = models.CharField(max_length=30)
+
+    def __str__(self):
+        return self.house.name + " " + self.client.email
+
+
+class Disponibility(models.Model):
     house = models.ForeignKey(House, on_delete=models.CASCADE)
+    date_start = models.DateField()
+    date_end = models.DateField()
+    status = models.CharField(max_length=30)
 
     def __str__(self):
-        return self.house.name
+        return self.house.name + " " + self.client.email
