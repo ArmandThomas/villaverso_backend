@@ -16,7 +16,7 @@ class VillaversoUser(models.Model):
 
 
 class ImageHouse(models.Model):
-    image = models.ImageField(upload_to=upload_to)
+    image = models.ImageField(upload_to=upload_to, blank=True, null=True)
     house = models.ForeignKey('House', on_delete=models.CASCADE)
 
     def __str__(self):
