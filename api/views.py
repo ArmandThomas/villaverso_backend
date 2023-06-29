@@ -262,6 +262,51 @@ def get_one_house(request, id):
 
     return Response(content, status=status.HTTP_200_OK)
 
+@api_view(['POST'])
+def upload_somes_images(request, home_id) :
+    content = {'message': ''}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+        images = request.FILES.getlist('images')
+
+        if not images:
+            content['message'] = 'All fields are required'
+            return Response(content, status=status.HTTP_400_BAD_REQUEST)
+
+        house = House.objects.get(id=home_id)
+
+        if user.id != house.owner.id:
+            content['message'] = 'You are not the owner of this house'
+            return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+        for image in images:
+            image_house = ImageHouse(
+                house=house,
+                image=image,
+            )
+            image_house.save()
+
+        content['message'] = 'Image uploaded successfully'
+
+        return Response(content, status=status.HTTP_200_OK)
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+
 @api_view(['GET'])
 def my_houses(request):
     content = {'message': '', 'data': []}
