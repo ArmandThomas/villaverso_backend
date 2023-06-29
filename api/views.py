@@ -7,6 +7,7 @@ from dotenv import dotenv_values
 from rest_framework.decorators import api_view
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
+from datetime import datetime
 
 import bcrypt
 
@@ -261,6 +262,51 @@ def get_one_house(request, id):
 
     return Response(content, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+def my_houses(request):
+    content = {'message': '', 'data': []}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+        houses = House.objects.filter(owner=user)
+        images = ImageHouse.objects.all()
+        for house in houses:
+            house_dict = {
+                'id': house.id,
+                'name': house.name,
+                'nbr_rooms': house.nbr_rooms,
+                'nbr_people': house.nbr_people,
+                'm2_house': house.m2_house,
+                'm2_garden': house.m2_garden,
+                'pool': house.pool,
+                'latitude': house.latitude,
+                'longitude': house.longitude,
+                'localisation': house.localisation,
+                'description': house.description,
+                'owner': house.owner.email,
+                'images': []
+            }
+            for image in images:
+                if image.house.id == house.id:
+                    house_dict['images'].append(image.image.url)
+            content['data'].append(house_dict)
+
+        return Response(content, status=status.HTTP_200_OK)
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
 
 @api_view(['GET'])
 def get_house_disponibilities(request, id):
@@ -270,8 +316,8 @@ def get_house_disponibilities(request, id):
     for disponibility in disponibilities:
         disponibility_dict = {
             'id': disponibility.id,
-            'start_date': disponibility.start_date,
-            'end_date': disponibility.end_date,
+            'start_date': disponibility.date_start,
+            'end_date': disponibility.date_end,
             'house': disponibility.house.id,
         }
         content['data'].append(disponibility_dict)
@@ -310,9 +356,19 @@ def create_disponibility(request, id):
             content['message'] = 'All fields are required'
             return Response(content, status=status.HTTP_400_BAD_REQUEST)
 
+        start_datetime = datetime.strptime(start_date, '%Y-%m-%dT%H:%M:%SZ')
+        end_datetime = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%SZ')
+
+        formatted_start_date = start_datetime.date().isoformat()
+        formatted_end_date = end_datetime.date().isoformat()
+
+        print(formatted_start_date)
+        print(formatted_end_date)
+
+
         disponibility = Disponibility(
-            start_date=start_date,
-            end_date=end_date,
+            date_start=formatted_start_date,
+            date_end=formatted_end_date,
             house=house,
             status='available'
         )
@@ -322,8 +378,8 @@ def create_disponibility(request, id):
         content['message'] = 'Disponibility created successfully'
         content['data'] = {
             'id': disponibility.id,
-            'start_date': disponibility.start_date,
-            'end_date': disponibility.end_date,
+            'start_date': disponibility.date_start,
+            'end_date': disponibility.date_end,
             'house': disponibility.house.id,
             'status': disponibility.status
         }

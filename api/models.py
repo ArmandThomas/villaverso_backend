@@ -58,4 +58,4 @@ class Disponibility(models.Model):
     status = models.CharField(max_length=30)
 
     def __str__(self):
-        return self.house.name + " " + self.client.email
+        return self.house.name + " " + str(self.id)

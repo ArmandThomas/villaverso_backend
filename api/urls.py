@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import register, login, me, create_house, get_houses, get_one_house, get_house_disponibilities, create_disponibility
+from .views import register, login, me, create_house, get_houses, get_one_house, get_house_disponibilities, create_disponibility, my_houses
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path('auth/register', register),
     path('auth/me', me),
 
+    path('my_houses', my_houses),
     path('house', create_house),
     path('houses', get_houses),
     path('house/<int:id>', get_one_house),
