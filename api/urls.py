@@ -1,6 +1,6 @@
 
 from django.urls import path
-from .views import register, login, me, create_house, get_houses, get_one_house, get_house_disponibilities, create_disponibility, my_houses, upload_somes_images, create_deal, remove_disponibility
+from .views import register, login, me, create_house, get_houses, get_one_house, get_house_disponibilities, create_disponibility, my_houses, upload_somes_images, create_deal, remove_disponibility, get_my_deals
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -21,5 +21,6 @@ urlpatterns = [
     path('house/<int:home_id>/upload_images', upload_somes_images),
 
     path('create_deal', create_deal),
+    path('my_deals', get_my_deals)
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

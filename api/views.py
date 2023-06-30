@@ -1,4 +1,5 @@
 from django.core.files.storage import FileSystemStorage
+from django.db.models import Q
 from rest_framework.response import Response
 
 from .models import VillaversoUser, House, ImageHouse, Disponibility, Deal
@@ -707,6 +708,55 @@ def create_deal(request):
             'house_client': deal.house_client.id,
             'status': deal.status,
         }
+
+
+        return Response(content, status=status.HTTP_200_OK)
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET'])
+def get_my_deals(request):
+    content = {'message': ''}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+        deals = Deal.objects.filter(Q(house_client__owner=user) | Q(house_receiver__owner=user))
+
+        content['message'] = 'Deals fetched successfully'
+        content['data'] = []
+
+        for deal in deals:
+
+            dealData = {
+                'id': deal.id,
+                'nbr_people': deal.nbr_people,
+                'date_start': deal.date_start,
+                'date_end': deal.date_end,
+                'house_receiver': deal.house_receiver.id,
+                'house_client': deal.house_client.id,
+                'status': deal.status,
+            }
+            image = ImageHouse.objects.filter(house=deal.house_receiver.id).first()
+            if image:
+                dealData['house_receiver_image'] = image.image.url
+            image = ImageHouse.objects.filter(house=deal.house_client.id).first()
+            if image:
+                dealData['house_client_image'] = image.image.url
+
+            content['data'].append(dealData)
 
 
         return Response(content, status=status.HTTP_200_OK)
