@@ -1,7 +1,7 @@
 from django.core.files.storage import FileSystemStorage
 from rest_framework.response import Response
 
-from .models import VillaversoUser, House, ImageHouse, Disponibility
+from .models import VillaversoUser, House, ImageHouse, Disponibility, Deal
 
 from dotenv import dotenv_values
 from rest_framework.decorators import api_view
@@ -167,6 +167,37 @@ def create_house(request):
             content['message'] = 'All fields are required'
             return Response(content, status=status.HTTP_400_BAD_REQUEST)
 
+        id_house = request.data.get('id_house')
+
+        if id_house:
+            house = House.objects.get(id=id_house)
+            house.name = name
+            house.nbr_rooms = nbr_rooms
+            house.nbr_people = nbr_people
+            house.m2_house = m2_house
+            house.m2_garden = m2_garden
+            house.pool = pool
+            house.latitude = latitude
+            house.longitude = longitude
+            house.localisation = localisation
+            house.description = description
+            house.save()
+            content['message'] = 'House updated successfully'
+            content['data'] = {
+                'id': house.id,
+                'name': house.name,
+                'nbr_rooms': house.nbr_rooms,
+                'nbr_people': house.nbr_people,
+                'm2_house': house.m2_house,
+                'm2_garden': house.m2_garden,
+                'pool': house.pool,
+                'latitude': house.latitude,
+                'longitude': house.longitude,
+                'localisation': house.localisation,
+                'description': house.description,
+            }
+            return Response(content, status=status.HTTP_200_OK)
+
         house = House(
             name=name,
             nbr_rooms=nbr_rooms,
@@ -230,7 +261,10 @@ def get_houses(request):
         }
         for image in images:
             if image.house.id == house.id:
-                house_dict['images'].append(image.image.url)
+                house_dict['images'].append({
+                    'id': image.id,
+                    'url': image.image.url
+                })
         content['data'].append(house_dict)
 
     return Response(content, status=status.HTTP_200_OK)
@@ -257,13 +291,17 @@ def get_one_house(request, id):
         'images': []
     }
     for image in images:
-        house_dict['images'].append(image.image.url)
+        house_dict['images'].append({
+            'id': image.id,
+            'url': image.image.url
+        })
     content['data'].append(house_dict)
 
     return Response(content, status=status.HTTP_200_OK)
 
+
 @api_view(['POST'])
-def upload_somes_images(request, home_id) :
+def upload_somes_images(request, home_id):
     content = {'message': ''}
     token = request.headers.get('Authorization')
 
@@ -344,7 +382,10 @@ def my_houses(request):
             }
             for image in images:
                 if image.house.id == house.id:
-                    house_dict['images'].append(image.image.url)
+                    house_dict['images'].append({
+                        'id': image.id,
+                        'url': image.image.url
+                    })
             content['data'].append(house_dict)
 
         return Response(content, status=status.HTTP_200_OK)
@@ -352,6 +393,7 @@ def my_houses(request):
     except jwt.InvalidTokenError:
         content['message'] = 'Invalid token'
         return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
 
 @api_view(['GET'])
 def get_house_disponibilities(request, id):
@@ -396,6 +438,7 @@ def create_disponibility(request, id):
 
         start_date = request.data.get('start_date')
         end_date = request.data.get('end_date')
+        id_disponibility = request.data.get('id_disponibility')
 
         if not start_date or not end_date:
             content['message'] = 'All fields are required'
@@ -407,8 +450,24 @@ def create_disponibility(request, id):
         formatted_start_date = start_datetime.date().isoformat()
         formatted_end_date = end_datetime.date().isoformat()
 
-        print(formatted_start_date)
-        print(formatted_end_date)
+        if id_disponibility:
+            disponibility = Disponibility.objects.get(id=id_disponibility)
+            disponibility.date_start = formatted_start_date
+            disponibility.date_end = formatted_end_date
+            disponibility.save()
+
+            content['message'] = 'Disponibility updated successfully'
+            content['data'] = {
+                'id': disponibility.id,
+                'start_date': disponibility.date_start,
+                'end_date': disponibility.date_end,
+                'house': disponibility.house.id,
+                'status': disponibility.status
+            }
+
+            return Response(content, status=status.HTTP_200_OK)
+
+
 
 
         disponibility = Disponibility(
@@ -435,6 +494,40 @@ def create_disponibility(request, id):
         content['message'] = 'Invalid token'
         return Response(content, status=status.HTTP_401_UNAUTHORIZED)
 
+@api_view(['GET'])
+def remove_disponibility(request, id, id_disponibility):
+    content = {'message': ''}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+        house = House.objects.get(id=id)
+
+        disponibility = Disponibility.objects.get(house=house, id=id_disponibility)
+
+        if user.id != house.owner.id:
+            content['message'] = 'You are not authorized to delete this disponibility'
+            return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+        disponibility.delete()
+
+        content['message'] = 'Disponibility deleted successfully'
+
+        return Response(content, status=status.HTTP_200_OK)
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
 
 @api_view(['PUT'])
 @csrf_exempt
@@ -543,6 +636,80 @@ def upload_image(request):
 
         return Response(content, status=status.HTTP_200_OK)
 
+
+    except jwt.InvalidTokenError:
+        content['message'] = 'Invalid token'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+
+@api_view(['POST'])
+def create_deal(request):
+    content = {'message': ''}
+    token = request.headers.get('Authorization')
+
+    if not token:
+        content['message'] = 'Token is required'
+        return Response(content, status=status.HTTP_401_UNAUTHORIZED)
+
+    # convert bearer token to jwt token
+    token = token.split(' ')[1]
+
+    try:
+        payload = jwt.decode(token, SECRET_JWT, algorithms=['HS256'])
+
+        user = VillaversoUser.objects.get(id=payload['id'])
+
+
+
+        date_start = request.data.get('date_start')
+        date_end = request.data.get('date_end')
+        house_receiver = request.data.get('house_receiver')
+        house_client = request.data.get('house_client')
+        nbr_people = request.data.get('nbr_people')
+        status_deal = "pending"
+
+        if not date_start or not date_end or not house_receiver or not house_client or not nbr_people :
+            content['message'] = 'All fields are required'
+            return Response(content, status=status.HTTP_400_BAD_REQUEST)
+
+        start_datetime = datetime.strptime(date_start, '%Y-%m-%dT%H:%M:%SZ')
+        end_datetime = datetime.strptime(date_end, '%Y-%m-%dT%H:%M:%SZ')
+
+        formatted_start_date = start_datetime.date().isoformat()
+        formatted_end_date = end_datetime.date().isoformat()
+
+        instance_house_client = House.objects.get(id=house_client)
+
+        instance_house_receiver = House.objects.get(id=house_receiver)
+
+        if instance_house_client.owner != user:
+            content['message'] = 'You are not the owner of this house'
+            return Response(content, status=status.HTTP_403_FORBIDDEN)
+
+        deal = Deal(
+            nbr_people=nbr_people,
+            date_start=formatted_start_date,
+            date_end=formatted_end_date,
+            house_receiver=instance_house_receiver,
+            house_client=instance_house_client,
+            status=status_deal
+        )
+
+        deal.save()
+
+        content['message'] = 'Deal created successfully'
+        content['data'] = {
+            'id': deal.id,
+            'nbr_people': deal.nbr_people,
+            'date_start': deal.date_start,
+            'date_end': deal.date_end,
+            'house_receiver': deal.house_receiver.id,
+            'house_client': deal.house_client.id,
+            'status': deal.status,
+        }
+
+
+        return Response(content, status=status.HTTP_200_OK)
 
     except jwt.InvalidTokenError:
         content['message'] = 'Invalid token'

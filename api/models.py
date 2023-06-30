@@ -37,18 +37,19 @@ class House(models.Model):
     description = models.TextField()
 
     def __str__(self):
-        return self.name + " " + self.owner.email
+        return str(self.id) + " " + self.name + " " + self.owner.email
 
 
 class Deal(models.Model):
-    house_receiver = models.ForeignKey(House, on_delete=models.CASCADE)
-    house_client = models.ForeignKey(VillaversoUser, on_delete=models.CASCADE)
+    house_receiver = models.ForeignKey(House, on_delete=models.CASCADE, related_name='house_receiver')
+    house_client = models.ForeignKey(House, on_delete=models.CASCADE, related_name='house_client')
     date_start = models.DateField()
     date_end = models.DateField()
     status = models.CharField(max_length=30)
+    nbr_people = models.IntegerField(default=0)
 
     def __str__(self):
-        return self.house.name + " " + self.client.email
+        return str(self.id) + " " + self.house_receiver.name + " " + self.house_client.name
 
 
 class Disponibility(models.Model):
